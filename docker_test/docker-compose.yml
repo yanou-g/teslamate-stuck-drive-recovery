@@ -1,0 +1,60 @@
+# Isolated, throwaway TeslaMate stack for rehearsing the recovery against a Pi
+# backup on Windows. Postgres is published on host port 15432 to avoid clashing
+# with other local Postgres containers. Project name: tmrecovery.
+name: tmrecovery
+
+services:
+  database:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: teslamate
+      POSTGRES_PASSWORD: teslamate
+      POSTGRES_DB: teslamate
+    ports:
+      - "15432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U teslamate -d teslamate"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  # Only needed for step 5 (close_drive). Uses a dummy ENCRYPTION_KEY — it cannot
+  # decrypt the Pi's real Tesla tokens (that's fine; close_drive never calls the
+  # API), so expect noisy token-decrypt errors in its log. The rpc console works.
+  teslamate:
+    image: teslamate/teslamate:4.0.1
+    environment:
+      ENCRYPTION_KEY: recovery_rehearsal_key
+      DATABASE_USER: teslamate
+      DATABASE_PASS: teslamate
+      DATABASE_NAME: teslamate
+      DATABASE_HOST: database
+      DISABLE_MQTT: "true"
+      TZ: Europe/Berlin
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - "4000:4000"
+    restart: unless-stopped
+
+  # TeslaMate's Grafana with the bundled dashboards. Open http://localhost:3000
+  # (admin / admin) -> Dashboards -> "Drives" to eyeball the recovered drives.
+  grafana:
+    image: teslamate/grafana:4.0.1
+    environment:
+      DATABASE_USER: teslamate
+      DATABASE_PASS: teslamate
+      DATABASE_NAME: teslamate
+      DATABASE_HOST: database
+    depends_on:
+      database:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

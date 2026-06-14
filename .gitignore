@@ -1,0 +1,14 @@
+# Private data — never commit. run.py writes a pg_dump (*.sql) before its first
+# write, and DB dumps contain your VIN, tokens, addresses and full location
+# history. These patterns keep any dump out of git.
+*.sql
+*.sql.gz
+*.dump
+*.backup
+
+# Tool output (4_reconstruct --dump-csv)
+*.csv
+
+# Python
+__pycache__/
+*.pyc
